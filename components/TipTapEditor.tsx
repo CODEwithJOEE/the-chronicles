@@ -1,4 +1,3 @@
-// components/TipTapEditor.tsx
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -6,6 +5,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold,
   Italic,
@@ -20,6 +23,7 @@ import {
   Heading2,
   Image as ImageIcon,
   Trash2,
+  Table as TableIcon,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
@@ -28,21 +32,6 @@ interface TipTapEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
 }
-
-// Custom extension to handle image deletion with Backspace
-const CustomImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      width: {
-        default: null,
-      },
-      height: {
-        default: null,
-      },
-    };
-  },
-});
 
 export function TipTapEditor({
   value,
@@ -65,7 +54,7 @@ export function TipTapEditor({
           rel: "noopener noreferrer",
         },
       }),
-      CustomImage.configure({
+      Image.configure({
         inline: false,
         allowBase64: true,
         HTMLAttributes: {
@@ -74,6 +63,28 @@ export function TipTapEditor({
       }),
       Placeholder.configure({
         placeholder,
+      }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: "table-auto w-full border-collapse my-4",
+        },
+      }),
+      TableRow.configure({
+        HTMLAttributes: {
+          class: "border-b border-gray-200",
+        },
+      }),
+      TableCell.configure({
+        HTMLAttributes: {
+          class: "px-4 py-2 border border-gray-200",
+        },
+      }),
+      TableHeader.configure({
+        HTMLAttributes: {
+          class:
+            "px-4 py-2 border border-gray-200 bg-gray-50 font-bold text-left",
+        },
       }),
     ],
     content: value,
@@ -87,23 +98,6 @@ export function TipTapEditor({
       attributes: {
         class:
           "prose prose-lg max-w-none focus:outline-none min-h-[300px] px-4 py-3",
-      },
-      handleKeyDown: (view, event) => {
-        // Handle Backspace to delete images
-        if (event.key === "Backspace") {
-          const { state } = view;
-          const { selection } = state;
-          const { $from } = selection;
-
-          // Check if we're at the start of a node
-          if ($from.parent.type.name === "image") {
-            // Delete the image node
-            const tr = state.tr.delete($from.before(), $from.after());
-            view.dispatch(tr);
-            return true;
-          }
-        }
-        return false;
       },
     },
   });
@@ -149,34 +143,46 @@ export function TipTapEditor({
     }
   };
 
-  const removeImage = () => {
-    const { state } = editor;
-    const { selection } = state;
-    const { $from } = selection;
+  const insertTable = () => {
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+      .run();
+  };
 
-    // Check if we're on an image node
-    if ($from.parent.type.name === "image") {
-      const tr = state.tr.delete($from.before(), $from.after());
-      editor.view.dispatch(tr);
-      editor.commands.focus();
-    } else {
-      // Try to find image in selection
-      const imageNode = editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === "image") {
-          const tr = editor.state.tr.delete(pos, pos + node.nodeSize);
-          editor.view.dispatch(tr);
-          return false;
-        }
-        return true;
-      });
-    }
+  const addColumnBefore = () => {
+    editor.chain().focus().addColumnBefore().run();
+  };
+
+  const addColumnAfter = () => {
+    editor.chain().focus().addColumnAfter().run();
+  };
+
+  const deleteColumn = () => {
+    editor.chain().focus().deleteColumn().run();
+  };
+
+  const addRowBefore = () => {
+    editor.chain().focus().addRowBefore().run();
+  };
+
+  const addRowAfter = () => {
+    editor.chain().focus().addRowAfter().run();
+  };
+
+  const deleteRow = () => {
+    editor.chain().focus().deleteRow().run();
+  };
+
+  const deleteTable = () => {
+    editor.chain().focus().deleteTable().run();
   };
 
   const deleteSelectedImage = () => {
     const { state } = editor;
     const { selection } = state;
 
-    // Find if selection contains an image
     let foundImage = false;
     const tr = state.tr;
 
@@ -278,7 +284,7 @@ export function TipTapEditor({
 
         <div className="w-px h-8 bg-gray-300 mx-1" />
 
-        {/* Blockquote, Link, and Image */}
+        {/* Blockquote, Link, Image, Table */}
         <button
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
@@ -299,17 +305,78 @@ export function TipTapEditor({
         </button>
         <button
           onClick={addImage}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("image") ? "bg-gray-200" : ""
-          }`}
+          className="p-2 rounded hover:bg-gray-200 transition-colors"
           title="Insert Image"
         >
           <ImageIcon size={18} />
         </button>
+
+        {/* Table Button with Dropdown */}
+        <div className="relative group">
+          <button
+            onClick={insertTable}
+            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            title="Insert Table"
+          >
+            <TableIcon size={18} />
+          </button>
+          {editor.isActive("table") && (
+            <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-lg p-1 border border-gray-200 min-w-[120px] hidden group-hover:block">
+              <button
+                onClick={addColumnBefore}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
+              >
+                Add Column Before
+              </button>
+              <button
+                onClick={addColumnAfter}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
+              >
+                Add Column After
+              </button>
+              <button
+                onClick={deleteColumn}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
+              >
+                Delete Column
+              </button>
+              <div className="border-t border-gray-200 my-1" />
+              <button
+                onClick={addRowBefore}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
+              >
+                Add Row Before
+              </button>
+              <button
+                onClick={addRowAfter}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
+              >
+                Add Row After
+              </button>
+              <button
+                onClick={deleteRow}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
+              >
+                Delete Row
+              </button>
+              <div className="border-t border-gray-200 my-1" />
+              <button
+                onClick={deleteTable}
+                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
+              >
+                Delete Table
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-8 bg-gray-300 mx-1" />
+
+        {/* Delete Image button */}
         <button
           onClick={deleteSelectedImage}
           className="p-2 rounded hover:bg-red-100 transition-colors text-red-600"
-          title="Delete Image"
+          title="Delete Selected Image"
         >
           <Trash2 size={18} />
         </button>
