@@ -6,7 +6,6 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-// ✅ Correct imports for TipTap table extensions
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -25,9 +24,9 @@ import {
   Heading2,
   Image as ImageIcon,
   Trash2,
-  Table as TableIcon, // ← Renamed to avoid conflict with Table extension
+  Table as TableIcon,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface TipTapEditorProps {
   value: string;
@@ -41,6 +40,7 @@ export function TipTapEditor({
   placeholder = "Write your article...",
 }: TipTapEditorProps) {
   const isUpdatingFromParent = useRef(false);
+  const isInternalUpdate = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -91,7 +91,7 @@ export function TipTapEditor({
     ],
     content: value,
     onUpdate: ({ editor }) => {
-      if (!isUpdatingFromParent.current) {
+      if (!isUpdatingFromParent.current && !isInternalUpdate.current) {
         const html = editor.getHTML();
         onChange(html);
       }
@@ -111,7 +111,9 @@ export function TipTapEditor({
       if (value !== currentContent) {
         isUpdatingFromParent.current = true;
         editor.commands.setContent(value);
-        isUpdatingFromParent.current = false;
+        setTimeout(() => {
+          isUpdatingFromParent.current = false;
+        }, 100);
       }
     }
   }, [editor, value]);
@@ -124,7 +126,15 @@ export function TipTapEditor({
     );
   }
 
-  const setLink = () => {
+  const setLink = useCallback(() => {
+    const { from, to } = editor.state.selection;
+
+    // Check if there's selected text
+    if (from === to) {
+      alert("Please select some text first before adding a link.");
+      return;
+    }
+
     const previousUrl = editor.getAttributes("link").href;
     const url = window.prompt("Enter URL:", previousUrl);
 
@@ -135,53 +145,104 @@ export function TipTapEditor({
       return;
     }
 
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  };
+    // Validate URL
+    let finalUrl = url;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      finalUrl = "https://" + url;
+    }
 
-  const addImage = () => {
+    isInternalUpdate.current = true;
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: finalUrl })
+      .run();
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
+
+  const addImage = useCallback(() => {
     const url = window.prompt("Enter image URL:");
     if (url) {
+      isInternalUpdate.current = true;
       editor.chain().focus().setImage({ src: url }).run();
+      setTimeout(() => {
+        isInternalUpdate.current = false;
+      }, 100);
     }
-  };
+  }, [editor]);
 
-  const insertTable = () => {
+  const insertTable = useCallback(() => {
+    isInternalUpdate.current = true;
     editor
       .chain()
       .focus()
       .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
       .run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const addColumnBefore = () => {
+  const addColumnBefore = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().addColumnBefore().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const addColumnAfter = () => {
+  const addColumnAfter = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().addColumnAfter().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const deleteColumn = () => {
+  const deleteColumn = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().deleteColumn().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const addRowBefore = () => {
+  const addRowBefore = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().addRowBefore().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const addRowAfter = () => {
+  const addRowAfter = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().addRowAfter().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const deleteRow = () => {
+  const deleteRow = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().deleteRow().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const deleteTable = () => {
+  const deleteTable = useCallback(() => {
+    isInternalUpdate.current = true;
     editor.chain().focus().deleteTable().run();
-  };
+    setTimeout(() => {
+      isInternalUpdate.current = false;
+    }, 100);
+  }, [editor]);
 
-  const deleteSelectedImage = () => {
+  const deleteSelectedImage = useCallback(() => {
     const { state } = editor;
     const { selection } = state;
 
@@ -198,10 +259,18 @@ export function TipTapEditor({
     });
 
     if (foundImage) {
+      isInternalUpdate.current = true;
       editor.view.dispatch(tr);
       editor.commands.focus();
+      setTimeout(() => {
+        isInternalUpdate.current = false;
+      }, 100);
     }
-  };
+  }, [editor]);
+
+  // Check if text is selected for link
+  const hasSelectedText =
+    editor.state.selection.from !== editor.state.selection.to;
 
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
@@ -209,9 +278,13 @@ export function TipTapEditor({
       <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
         {/* Headings */}
         <button
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run()
-          }
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleHeading({ level: 1 }).run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""
           }`}
@@ -220,9 +293,13 @@ export function TipTapEditor({
           <Heading1 size={18} />
         </button>
         <button
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run()
-          }
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleHeading({ level: 2 }).run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""
           }`}
@@ -235,7 +312,13 @@ export function TipTapEditor({
 
         {/* Text formatting */}
         <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleBold().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("bold") ? "bg-gray-200" : ""
           }`}
@@ -244,7 +327,13 @@ export function TipTapEditor({
           <Bold size={18} />
         </button>
         <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleItalic().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("italic") ? "bg-gray-200" : ""
           }`}
@@ -253,7 +342,13 @@ export function TipTapEditor({
           <Italic size={18} />
         </button>
         <button
-          onClick={() => editor.chain().focus().toggleStrike().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleStrike().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("strike") ? "bg-gray-200" : ""
           }`}
@@ -266,7 +361,13 @@ export function TipTapEditor({
 
         {/* Lists */}
         <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleBulletList().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("bulletList") ? "bg-gray-200" : ""
           }`}
@@ -275,7 +376,13 @@ export function TipTapEditor({
           <List size={18} />
         </button>
         <button
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleOrderedList().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("orderedList") ? "bg-gray-200" : ""
           }`}
@@ -288,7 +395,13 @@ export function TipTapEditor({
 
         {/* Blockquote, Link, Image, Table */}
         <button
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().toggleBlockquote().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("blockquote") ? "bg-gray-200" : ""
           }`}
@@ -296,15 +409,21 @@ export function TipTapEditor({
         >
           <Quote size={18} />
         </button>
+
+        {/* Link button with visual feedback */}
         <button
           onClick={setLink}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
             editor.isActive("link") ? "bg-gray-200" : ""
-          }`}
-          title="Insert Link"
+          } ${!hasSelectedText ? "opacity-50 cursor-not-allowed" : ""}`}
+          title={
+            hasSelectedText ? "Insert Link" : "Select text first to add a link"
+          }
+          disabled={!hasSelectedText}
         >
           <LinkIcon size={18} />
         </button>
+
         <button
           onClick={addImage}
           className="p-2 rounded hover:bg-gray-200 transition-colors"
@@ -387,14 +506,26 @@ export function TipTapEditor({
 
         {/* Undo/Redo */}
         <button
-          onClick={() => editor.chain().focus().undo().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().undo().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className="p-2 rounded hover:bg-gray-200 transition-colors"
           title="Undo"
         >
           <Undo size={18} />
         </button>
         <button
-          onClick={() => editor.chain().focus().redo().run()}
+          onClick={() => {
+            isInternalUpdate.current = true;
+            editor.chain().focus().redo().run();
+            setTimeout(() => {
+              isInternalUpdate.current = false;
+            }, 100);
+          }}
           className="p-2 rounded hover:bg-gray-200 transition-colors"
           title="Redo"
         >
