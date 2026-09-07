@@ -64,3 +64,28 @@
 .tiptap table .selectedCell {
   background-color: #e2e8f0;
 }
+/* app/globals.css */
+.math-block {
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 1.5rem !important;
+  margin: 1.5rem 0 !important;
+  text-align: center !important;
+}
+
+.math-formula {
+  font-size: 1.25rem !important;
+  font-family: "Georgia", serif !important;
+  color: #1f2937 !important;
+  line-height: 1.8 !important;
+}
+
+.ProseMirror .math-block {
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 1.5rem !important;
+  margin: 1.5rem 0 !important;
+  text-align: center !important;
+}

@@ -1,3 +1,4 @@
+// components/TipTapEditor.tsx
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -5,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+// ✅ Correct imports for TipTap table extensions
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -23,7 +25,7 @@ import {
   Heading2,
   Image as ImageIcon,
   Trash2,
-  Table as TableIcon,
+  Table as TableIcon, // ← Renamed to avoid conflict with Table extension
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
