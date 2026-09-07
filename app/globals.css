@@ -89,3 +89,33 @@
   margin: 1.5rem 0 !important;
   text-align: center !important;
 }
+/* app/globals.css - Add these styles */
+
+/* app/globals.css - Add at the end */
+
+/* Article link styles - ensure links are visible and clickable */
+.prose a {
+  color: #0066cc !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  text-decoration-color: rgba(0, 102, 204, 0.3) !important;
+  text-decoration-thickness: 2px !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.prose a:hover {
+  color: #004499 !important;
+  text-decoration-color: #0066cc !important;
+}
+
+.prose a:visited {
+  color: #7c3aed !important;
+}
+
+/* Make sure links are clickable */
+.prose a[href] {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}

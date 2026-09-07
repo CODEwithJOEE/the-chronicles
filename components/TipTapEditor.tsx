@@ -2,13 +2,11 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
+import { useEffect, useRef, useState } from "react";
 import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table-row";
-import { TableCell } from "@tiptap/extension-table-cell";
-import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold,
   Italic,
@@ -17,15 +15,14 @@ import {
   ListOrdered,
   Quote,
   Link as LinkIcon,
+  Unlink,
   Undo,
   Redo,
   Heading1,
   Heading2,
-  Image as ImageIcon,
-  Trash2,
-  Table as TableIcon,
+  Check,
+  X,
 } from "lucide-react";
-import { useEffect, useRef, useCallback } from "react";
 
 interface TipTapEditorProps {
   value: string;
@@ -38,64 +35,34 @@ export function TipTapEditor({
   onChange,
   placeholder = "Write your article...",
 }: TipTapEditorProps) {
-  const isUpdatingFromParent = useRef(false);
-  const isInternalUpdate = useRef(false);
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3],
         },
-        // Configure Link inside StarterKit instead
-        link: {
-          openOnClick: false,
-          HTMLAttributes: {
-            target: "_blank",
-            rel: "noopener noreferrer",
-          },
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          target: "_blank",
+          rel: "noopener noreferrer",
         },
       }),
       Image.configure({
-        inline: false,
+        inline: true,
         allowBase64: true,
         HTMLAttributes: {
-          class: "max-w-full h-auto rounded-lg my-4",
+          class: "max-w-full h-auto rounded-lg",
         },
       }),
       Placeholder.configure({
         placeholder,
       }),
-      Table.configure({
-        resizable: true,
-        HTMLAttributes: {
-          class: "table-auto w-full border-collapse my-4",
-        },
-      }),
-      TableRow.configure({
-        HTMLAttributes: {
-          class: "border-b border-gray-200",
-        },
-      }),
-      TableCell.configure({
-        HTMLAttributes: {
-          class: "px-4 py-2 border border-gray-200",
-        },
-      }),
-      TableHeader.configure({
-        HTMLAttributes: {
-          class:
-            "px-4 py-2 border border-gray-200 bg-gray-50 font-bold text-left",
-        },
-      }),
     ],
     content: value,
-    immediatelyRender: true, // Add this to fix React 19 compatibility
     onUpdate: ({ editor }) => {
-      if (!isUpdatingFromParent.current && !isInternalUpdate.current) {
-        const html = editor.getHTML();
-        onChange(html);
-      }
+      onChange(editor.getHTML());
     },
     editorProps: {
       attributes: {
@@ -105,19 +72,40 @@ export function TipTapEditor({
     },
   });
 
-  // Update editor content when value changes externally
+  const [showLinkPopover, setShowLinkPopover] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
+  // Close the popover when clicking outside it or pressing Escape
   useEffect(() => {
-    if (editor) {
-      const currentContent = editor.getHTML();
-      if (value !== currentContent) {
-        isUpdatingFromParent.current = true;
-        editor.commands.setContent(value);
-        setTimeout(() => {
-          isUpdatingFromParent.current = false;
-        }, 100);
+    if (!showLinkPopover) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
+        setShowLinkPopover(false);
       }
-    }
-  }, [editor, value]);
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowLinkPopover(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    // Focus + select the input as soon as the popover opens
+    requestAnimationFrame(() => {
+      linkInputRef.current?.focus();
+      linkInputRef.current?.select();
+    });
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showLinkPopover]);
 
   if (!editor) {
     return (
@@ -127,179 +115,62 @@ export function TipTapEditor({
     );
   }
 
-  const setLink = useCallback(() => {
-    const { from, to } = editor.state.selection;
+  const openLinkPopover = () => {
+    const previousUrl = editor.getAttributes("link").href || "";
+    setLinkUrl(previousUrl);
+    setShowLinkPopover(true);
+  };
 
-    if (from === to) {
-      alert("Please select some text first before adding a link.");
-      return;
-    }
-
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("Enter URL:", previousUrl);
-
-    if (url === null) return;
+  const applyLink = () => {
+    const url = linkUrl.trim();
 
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
+    } else {
+      // Default to https:// if the user typed a bare domain
+      const finalUrl =
+        /^https?:\/\//i.test(url) ||
+        url.startsWith("/") ||
+        url.startsWith("mailto:")
+          ? url
+          : `https://${url}`;
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: finalUrl })
+        .run();
     }
 
-    let finalUrl = url;
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      finalUrl = "https://" + url;
-    }
+    setShowLinkPopover(false);
+  };
 
-    isInternalUpdate.current = true;
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: finalUrl })
-      .run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const addImage = useCallback(() => {
-    const url = window.prompt("Enter image URL:");
-    if (url) {
-      isInternalUpdate.current = true;
-      editor.chain().focus().setImage({ src: url }).run();
-      setTimeout(() => {
-        isInternalUpdate.current = false;
-      }, 100);
-    }
-  }, [editor]);
-
-  const insertTable = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor
-      .chain()
-      .focus()
-      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-      .run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const addColumnBefore = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().addColumnBefore().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const addColumnAfter = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().addColumnAfter().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const deleteColumn = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().deleteColumn().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const addRowBefore = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().addRowBefore().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const addRowAfter = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().addRowAfter().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const deleteRow = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().deleteRow().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const deleteTable = useCallback(() => {
-    isInternalUpdate.current = true;
-    editor.chain().focus().deleteTable().run();
-    setTimeout(() => {
-      isInternalUpdate.current = false;
-    }, 100);
-  }, [editor]);
-
-  const deleteSelectedImage = useCallback(() => {
-    const { state } = editor;
-    const { selection } = state;
-
-    let foundImage = false;
-    const tr = state.tr;
-
-    state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
-      if (node.type.name === "image") {
-        tr.delete(pos, pos + node.nodeSize);
-        foundImage = true;
-        return false;
-      }
-      return true;
-    });
-
-    if (foundImage) {
-      isInternalUpdate.current = true;
-      editor.view.dispatch(tr);
-      editor.commands.focus();
-      setTimeout(() => {
-        isInternalUpdate.current = false;
-      }, 100);
-    }
-  }, [editor]);
-
-  const hasSelectedText =
-    editor.state.selection.from !== editor.state.selection.to;
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setShowLinkPopover(false);
+  };
 
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-      <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
+      {/* Toolbar */}
+      <div className="relative flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
         {/* Headings */}
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleHeading({ level: 1 }).run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""}`}
           title="Heading 1"
         >
           <Heading1 size={18} />
         </button>
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleHeading({ level: 2 }).run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""}`}
           title="Heading 2"
         >
           <Heading2 size={18} />
@@ -309,46 +180,25 @@ export function TipTapEditor({
 
         {/* Text formatting */}
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleBold().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("bold") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("bold") ? "bg-gray-200" : ""}`}
           title="Bold"
         >
           <Bold size={18} />
         </button>
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleItalic().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("italic") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("italic") ? "bg-gray-200" : ""}`}
           title="Italic"
         >
           <Italic size={18} />
         </button>
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleStrike().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("strike") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("strike") ? "bg-gray-200" : ""}`}
           title="Strikethrough"
         >
           <Strikethrough size={18} />
@@ -358,31 +208,17 @@ export function TipTapEditor({
 
         {/* Lists */}
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleBulletList().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("bulletList") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("bulletList") ? "bg-gray-200" : ""}`}
           title="Bullet List"
         >
           <List size={18} />
         </button>
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleOrderedList().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("orderedList") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("orderedList") ? "bg-gray-200" : ""}`}
           title="Numbered List"
         >
           <ListOrdered size={18} />
@@ -390,136 +226,92 @@ export function TipTapEditor({
 
         <div className="w-px h-8 bg-gray-300 mx-1" />
 
-        {/* Blockquote, Link, Image, Table */}
+        {/* Blockquote and Link */}
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().toggleBlockquote().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("blockquote") ? "bg-gray-200" : ""
-          }`}
+          type="button"
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("blockquote") ? "bg-gray-200" : ""}`}
           title="Blockquote"
         >
           <Quote size={18} />
         </button>
-
-        <button
-          onClick={setLink}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive("link") ? "bg-gray-200" : ""
-          } ${!hasSelectedText ? "opacity-50 cursor-not-allowed" : ""}`}
-          title={
-            hasSelectedText ? "Insert Link" : "Select text first to add a link"
-          }
-          disabled={!hasSelectedText}
-        >
-          <LinkIcon size={18} />
-        </button>
-
-        <button
-          onClick={addImage}
-          className="p-2 rounded hover:bg-gray-200 transition-colors"
-          title="Insert Image"
-        >
-          <ImageIcon size={18} />
-        </button>
-
-        {/* Table Button with Dropdown */}
-        <div className="relative group">
+        <div className="relative">
           <button
-            onClick={insertTable}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
-            title="Insert Table"
+            type="button"
+            onClick={openLinkPopover}
+            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("link") || showLinkPopover ? "bg-gray-200" : ""}`}
+            title="Insert Link"
           >
-            <TableIcon size={18} />
+            <LinkIcon size={18} />
           </button>
-          {editor.isActive("table") && (
-            <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-lg p-1 border border-gray-200 min-w-[120px] hidden group-hover:block">
-              <button
-                onClick={addColumnBefore}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
-              >
-                Add Column Before
-              </button>
-              <button
-                onClick={addColumnAfter}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
-              >
-                Add Column After
-              </button>
-              <button
-                onClick={deleteColumn}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
-              >
-                Delete Column
-              </button>
-              <div className="border-t border-gray-200 my-1" />
-              <button
-                onClick={addRowBefore}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
-              >
-                Add Row Before
-              </button>
-              <button
-                onClick={addRowAfter}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-gray-100 rounded"
-              >
-                Add Row After
-              </button>
-              <button
-                onClick={deleteRow}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
-              >
-                Delete Row
-              </button>
-              <div className="border-t border-gray-200 my-1" />
-              <button
-                onClick={deleteTable}
-                className="w-full text-left px-3 py-1 text-sm hover:bg-red-100 rounded text-red-600"
-              >
-                Delete Table
-              </button>
+
+          {showLinkPopover && (
+            <div
+              ref={popoverRef}
+              className="absolute z-20 top-full left-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-3"
+            >
+              {/* Plain div, not <form> — this popover can render inside the
+                  page's own <form>, and HTML doesn't allow nested forms. */}
+              <div className="flex items-center gap-2">
+                <input
+                  ref={linkInputRef}
+                  type="text"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyLink();
+                    }
+                  }}
+                  placeholder="https://example.com"
+                  className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => applyLink()}
+                  title="Apply link"
+                  className="flex-shrink-0 p-2 rounded bg-accent text-white hover:opacity-90 transition-opacity"
+                >
+                  <Check size={16} />
+                </button>
+                {editor.isActive("link") && (
+                  <button
+                    type="button"
+                    onClick={removeLink}
+                    title="Remove link"
+                    className="flex-shrink-0 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  >
+                    <Unlink size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowLinkPopover(false)}
+                  title="Cancel"
+                  className="flex-shrink-0 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           )}
         </div>
 
         <div className="w-px h-8 bg-gray-300 mx-1" />
 
+        {/* Undo/Redo */}
         <button
-          onClick={deleteSelectedImage}
-          className="p-2 rounded hover:bg-red-100 transition-colors text-red-600"
-          title="Delete Selected Image"
-        >
-          <Trash2 size={18} />
-        </button>
-
-        <div className="w-px h-8 bg-gray-300 mx-1" />
-
-        <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().undo().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
+          type="button"
+          onClick={() => editor.chain().focus().undo().run()}
           className="p-2 rounded hover:bg-gray-200 transition-colors"
           title="Undo"
         >
           <Undo size={18} />
         </button>
         <button
-          onClick={() => {
-            isInternalUpdate.current = true;
-            editor.chain().focus().redo().run();
-            setTimeout(() => {
-              isInternalUpdate.current = false;
-            }, 100);
-          }}
+          type="button"
+          onClick={() => editor.chain().focus().redo().run()}
           className="p-2 rounded hover:bg-gray-200 transition-colors"
           title="Redo"
         >
@@ -527,6 +319,7 @@ export function TipTapEditor({
         </button>
       </div>
 
+      {/* Editor Content */}
       <EditorContent editor={editor} />
     </div>
   );

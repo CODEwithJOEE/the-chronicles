@@ -47,7 +47,7 @@ export default function EditArticlePage() {
 
     setTitle(data.title);
     setSlug(data.slug);
-    setContent(data.content);
+    setContent(data.content || "");
     setCategoryId(data.category_id);
     setStatus(data.status);
     setMetaTitle(data.meta_title || "");
@@ -66,6 +66,7 @@ export default function EditArticlePage() {
   };
 
   const handleContentChange = (newContent: string) => {
+    console.log("Content updated:", newContent);
     setContent(newContent);
   };
 
@@ -76,6 +77,8 @@ export default function EditArticlePage() {
     setSuccess("");
 
     try {
+      console.log("Submitting content:", content);
+
       // Upload new image if provided
       let imageUrl = currentImage;
       if (imageFile) {
@@ -101,27 +104,35 @@ export default function EditArticlePage() {
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
 
-      // Update article
+      // Update article - make sure content is included
+      const updateData = {
+        title,
+        slug: finalSlug,
+        content, // This must be included
+        category_id: categoryId,
+        featured_image: imageUrl,
+        status,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+        meta_keywords: metaKeywords,
+      };
+
+      console.log("Update data:", updateData);
+
       const { error: updateError } = await supabase
         .from("articles")
-        .update({
-          title,
-          slug: finalSlug,
-          content,
-          category_id: categoryId,
-          featured_image: imageUrl,
-          status,
-          meta_title: metaTitle,
-          meta_description: metaDescription,
-          meta_keywords: metaKeywords,
-        })
+        .update(updateData)
         .eq("id", id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw updateError;
+      }
 
       setSuccess("Changes saved successfully!");
       setTimeout(() => router.push("/admin"), 1500);
     } catch (err: any) {
+      console.error("Error updating article:", err);
       setError(err.message || "An error occurred while updating the article.");
     } finally {
       setSaving(false);

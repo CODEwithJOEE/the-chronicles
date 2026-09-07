@@ -10,7 +10,6 @@ interface ArticlePageProps {
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
-  // Await the params to get the slug
   const { slug } = await params;
 
   console.log("Looking for article with slug:", slug);
@@ -89,8 +88,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               </div>
             )}
 
+            {/* ✅ FIXED: Proper link styling with underline and color */}
             <div
-              className="prose prose-lg max-w-none prose-headings:font-serif prose-a:text-accent prose-a:no-underline hover:prose-a:underline"
+              className="prose prose-lg max-w-none prose-headings:font-serif prose-a:text-accent prose-a:underline prose-a:decoration-2 prose-a:decoration-accent/30 hover:prose-a:decoration-accent prose-a:transition-all prose-a:font-medium"
               dangerouslySetInnerHTML={{ __html: article.content }}
             />
           </article>
