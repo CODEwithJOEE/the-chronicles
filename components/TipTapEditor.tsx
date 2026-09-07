@@ -3,7 +3,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table } from "@tiptap/extension-table";
@@ -48,12 +47,13 @@ export function TipTapEditor({
         heading: {
           levels: [1, 2, 3],
         },
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          target: "_blank",
-          rel: "noopener noreferrer",
+        // Configure Link inside StarterKit instead
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            target: "_blank",
+            rel: "noopener noreferrer",
+          },
         },
       }),
       Image.configure({
@@ -90,6 +90,7 @@ export function TipTapEditor({
       }),
     ],
     content: value,
+    immediatelyRender: true, // Add this to fix React 19 compatibility
     onUpdate: ({ editor }) => {
       if (!isUpdatingFromParent.current && !isInternalUpdate.current) {
         const html = editor.getHTML();
@@ -129,7 +130,6 @@ export function TipTapEditor({
   const setLink = useCallback(() => {
     const { from, to } = editor.state.selection;
 
-    // Check if there's selected text
     if (from === to) {
       alert("Please select some text first before adding a link.");
       return;
@@ -145,7 +145,6 @@ export function TipTapEditor({
       return;
     }
 
-    // Validate URL
     let finalUrl = url;
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       finalUrl = "https://" + url;
@@ -268,13 +267,11 @@ export function TipTapEditor({
     }
   }, [editor]);
 
-  // Check if text is selected for link
   const hasSelectedText =
     editor.state.selection.from !== editor.state.selection.to;
 
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-      {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
         {/* Headings */}
         <button
@@ -410,7 +407,6 @@ export function TipTapEditor({
           <Quote size={18} />
         </button>
 
-        {/* Link button with visual feedback */}
         <button
           onClick={setLink}
           className={`p-2 rounded hover:bg-gray-200 transition-colors ${
@@ -493,7 +489,6 @@ export function TipTapEditor({
 
         <div className="w-px h-8 bg-gray-300 mx-1" />
 
-        {/* Delete Image button */}
         <button
           onClick={deleteSelectedImage}
           className="p-2 rounded hover:bg-red-100 transition-colors text-red-600"
@@ -504,7 +499,6 @@ export function TipTapEditor({
 
         <div className="w-px h-8 bg-gray-300 mx-1" />
 
-        {/* Undo/Redo */}
         <button
           onClick={() => {
             isInternalUpdate.current = true;
@@ -533,7 +527,6 @@ export function TipTapEditor({
         </button>
       </div>
 
-      {/* Editor Content */}
       <EditorContent editor={editor} />
     </div>
   );
