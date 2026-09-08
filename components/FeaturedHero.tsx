@@ -12,15 +12,26 @@ export function FeaturedHero({ article }: FeaturedHeroProps) {
   const excerpt =
     plainText.length > 180 ? plainText.substring(0, 180) + "..." : plainText;
 
+  // Helper function for cleaner code
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith("http")) return imagePath;
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/article-images/${imagePath}`;
+  };
+
+  const imageUrl = getImageUrl(article.featured_image);
+
   return (
     <Link href={`/article/${article.slug}`} className="block">
       <article className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white border border-gray-200 rounded-lg overflow-hidden mb-16 transition-all hover:-translate-y-1 hover:shadow-lg min-h-[400px]">
         <div className="relative h-64 lg:h-[450px] bg-gray-100">
-          {article.featured_image ? (
+          {imageUrl ? (
             <Image
-              src={article.featured_image}
+              src={imageUrl}
               alt={article.title}
               fill
+              priority // ✅ Equivalent to loading="eager" for LCP
+              sizes="(max-width: 768px) 100vw, 50vw" // ✅ Fixes the warning
               className="object-cover"
             />
           ) : (

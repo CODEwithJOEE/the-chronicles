@@ -1,7 +1,7 @@
-// components/ArticleCard.tsx
 import Link from "next/link";
 import Image from "next/image";
 import { Article } from "@/types";
+import { getImageUrl } from "@/lib/image-utils";
 
 interface ArticleCardProps {
   article: Article;
@@ -12,13 +12,33 @@ export function ArticleCard({ article }: ArticleCardProps) {
   const excerpt =
     plainText.length > 110 ? plainText.substring(0, 110) + "..." : plainText;
 
+  // Construct full image URL if only filename is stored
+  const getImageUrl = (imagePath: string | null) => {
+    if (!imagePath) return null;
+
+    // If it's already a full URL, return it
+    if (imagePath.startsWith("http")) {
+      return imagePath;
+    }
+
+    // Otherwise, construct the full URL
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return `${supabaseUrl}/storage/v1/object/public/article-images/${imagePath}`;
+  };
+
+  const imageUrl = getImageUrl(article.featured_image);
+
   return (
     <Link href={`/article/${article.slug}`} className="group h-full">
       <article className="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all hover:-translate-y-1 hover:shadow-lg flex flex-col h-full">
         <div className="relative h-48 bg-gray-100 flex-shrink-0">
           {article.featured_image ? (
             <Image
-              src={article.featured_image}
+              src={
+                article.featured_image.startsWith("http")
+                  ? article.featured_image
+                  : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/article-images/${article.featured_image}`
+              }
               alt={article.title}
               fill
               className="object-cover"

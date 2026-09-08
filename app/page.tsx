@@ -1,17 +1,17 @@
-// app/page.tsx - Alternative version
+// app/page.tsx
 import { db } from "@/lib/db";
 import { ArticleCard } from "@/components/ArticleCard";
 import { FeaturedHero } from "@/components/FeaturedHero";
 import { LoadMoreButton } from "@/components/LoadMoreButton";
 
 interface HomePageProps {
-  searchParams: { category?: string };
+  searchParams: Promise<{ category?: string }>;
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const categoryId = searchParams.category
-    ? parseInt(searchParams.category)
-    : undefined;
+  // ✅ Unwrap the Promise
+  const params = await searchParams;
+  const categoryId = params.category ? parseInt(params.category) : undefined;
 
   // Fetch all published articles
   const allArticles = await db.articles.getPublished(20, 0);

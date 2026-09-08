@@ -108,11 +108,15 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 href={`/article/${post.slug}`}
                 className="flex gap-4 group"
               >
-                {post.featured_image && (
-                  <div className="relative w-20 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                {article.featured_image && (
+                  <div className="relative h-64 md:h-96 mb-8 rounded-lg overflow-hidden">
                     <Image
-                      src={post.featured_image}
-                      alt={post.title}
+                      src={
+                        article.featured_image.startsWith("http")
+                          ? article.featured_image
+                          : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/article-images/${article.featured_image}`
+                      }
+                      alt={article.title}
                       fill
                       className="object-cover"
                     />
