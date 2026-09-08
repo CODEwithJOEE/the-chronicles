@@ -21,6 +21,23 @@ export const metadata: Metadata = {
   title: "The Chronicle - Digital Magazine",
   description:
     "Cutting-edge industry news, technology trends, lifestyle insights, and authoritative opinions.",
+  // ✅ Add favicon metadata
+  icons: {
+    icon: [
+      {
+        url: "/chronicles-40px.png",
+        sizes: "40x40",
+        type: "image/png",
+      },
+      {
+        url: "/chronicles-128px.ico",
+        sizes: "128x128",
+        type: "image/x-icon",
+      },
+    ],
+    shortcut: "/chronicles-40px.png",
+    apple: "/chronicles-128px.ico",
+  },
 };
 
 export default function RootLayout({
