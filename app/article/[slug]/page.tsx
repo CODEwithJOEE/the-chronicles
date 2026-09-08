@@ -4,6 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Clock } from "lucide-react";
 
+// Helper function for image URLs
+const getImageUrl = (imagePath: string | null) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/article-images/${imagePath}`;
+};
+
 // ✅ Generate static paths for all articles
 export async function generateStaticParams() {
   const articles = await db.articles.getPublished(999);
@@ -22,7 +29,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // ✅ Get article and latest posts in parallel
   const [article, latestPosts] = await Promise.all([
     db.articles.getBySlug(slug),
-    db.articles.getLatest(4),
+    db.articles.getLatest(4), // This should already exclude the current article
   ]);
 
   if (!article) {
@@ -32,6 +39,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // Calculate reading time
   const wordCount = article.content.replace(/<[^>]*>/g, "").split(/\s+/).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+  // Get the image URL
+  const featuredImageUrl = getImageUrl(article.featured_image);
 
   return (
     <div className="container py-8">
@@ -82,18 +92,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               </div>
             </header>
 
-            {article.featured_image && (
+            {/* ✅ FIXED: Featured Image */}
+            {featuredImageUrl && (
               <div className="relative h-64 md:h-96 mb-8 rounded-lg overflow-hidden">
                 <Image
-                  src={article.featured_image}
+                  src={featuredImageUrl}
                   alt={article.title}
                   fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="object-cover"
                 />
               </div>
             )}
 
-            {/* ✅ FIXED: Proper link styling with underline and color */}
+            {/* Article Content */}
             <div
               className="prose prose-lg max-w-none prose-headings:font-serif prose-a:text-accent prose-a:underline prose-a:decoration-2 prose-a:decoration-accent/30 hover:prose-a:decoration-accent prose-a:transition-all prose-a:font-medium"
               dangerouslySetInnerHTML={{ __html: article.content }}
@@ -101,46 +114,50 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </article>
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar - Latest Updates */}
         <aside className="lg:col-span-1">
           <h3 className="font-sans text-sm uppercase tracking-wider border-b-2 border-primary pb-3 mb-6 font-bold">
             Latest Updates
           </h3>
           <div className="space-y-6">
-            {latestPosts.map((post) => (
-              <Link
-                key={post.id}
-                href={`/article/${post.slug}`}
-                className="flex gap-4 group"
-              >
-                {article.featured_image && (
-                  <div className="relative h-64 md:h-96 mb-8 rounded-lg overflow-hidden">
-                    <Image
-                      src={
-                        article.featured_image.startsWith("http")
-                          ? article.featured_image
-                          : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/article-images/${article.featured_image}`
-                      }
-                      alt={article.title}
-                      fill
-                      className="object-cover"
-                    />
+            {latestPosts.map((post) => {
+              const postImageUrl = getImageUrl(post.featured_image);
+              return (
+                <Link
+                  key={post.id}
+                  href={`/article/${post.slug}`}
+                  className="flex gap-4 group"
+                >
+                  {/* ✅ FIXED: Show image in sidebar */}
+                  {postImageUrl ? (
+                    <div className="relative w-20 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                      <Image
+                        src={postImageUrl}
+                        alt={post.title}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-16 flex-shrink-0 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400">
+                      No img
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-serif font-semibold text-sm group-hover:text-accent transition-colors line-clamp-2">
+                      {post.title}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {new Date(post.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
-                )}
-                <div>
-                  <h4 className="font-serif font-semibold text-sm group-hover:text-accent transition-colors">
-                    {post.title}
-                  </h4>
-                  <span className="text-xs text-gray-400">
-                    {new Date(post.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </aside>
       </div>

@@ -101,56 +101,37 @@ export const db = {
     async getLatest(limit: number = 4, excludeId?: number): Promise<Article[]> {
       let query = supabase
         .from("articles")
-        .select("*")
+        .select(
+          `
+      *,
+      users!articles_author_id_fkey (username),
+      categories!articles_category_id_fkey (name)
+    `,
+        )
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(limit);
 
+      // ✅ Exclude the current article
       if (excludeId) {
         query = query.neq("id", excludeId);
       }
 
       const { data, error } = await query;
+
       if (error) {
         console.error("Error fetching latest articles:", error);
         return [];
       }
 
-      const articlesWithDetails = await Promise.all(
-        (data || []).map(async (article) => {
-          let author = "Guest Writer";
-          if (article.author_id) {
-            const { data: user } = await supabase
-              .from("users")
-              .select("username")
-              .eq("id", article.author_id)
-              .maybeSingle();
-            if (user) {
-              author = user.username;
-            }
-          }
-
-          let category_name = "Uncategorized";
-          if (article.category_id) {
-            const { data: category } = await supabase
-              .from("categories")
-              .select("name")
-              .eq("id", article.category_id)
-              .maybeSingle();
-            if (category) {
-              category_name = category.name;
-            }
-          }
-
-          return {
-            ...article,
-            author,
-            category_name,
-          };
-        }),
-      );
-
-      return articlesWithDetails;
+      // Transform data
+      return (data || []).map((article) => ({
+        ...article,
+        author: article.users?.username || "Guest Writer",
+        category_name: article.categories?.name || "Uncategorized",
+        users: undefined,
+        categories: undefined,
+      }));
     },
 
     async getHero(categoryId?: number): Promise<Article | null> {
