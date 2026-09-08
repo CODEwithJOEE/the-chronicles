@@ -30,9 +30,12 @@
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 }
-/* app/globals.css - Add these styles */
 
-/* Table Styles for TipTap */
+/* ============================================
+   TIP TAP EDITOR STYLES
+   ============================================ */
+
+/* Table Styles for TipTap Editor */
 .tiptap table {
   border-collapse: collapse;
   margin: 1.5rem 0;
@@ -64,7 +67,8 @@
 .tiptap table .selectedCell {
   background-color: #e2e8f0;
 }
-/* app/globals.css */
+
+/* Math block styles */
 .math-block {
   background: #f9fafb !important;
   border: 1px solid #e5e7eb !important;
@@ -89,9 +93,10 @@
   margin: 1.5rem 0 !important;
   text-align: center !important;
 }
-/* app/globals.css - Add these styles */
 
-/* app/globals.css - Add at the end */
+/* ============================================
+   ARTICLE DISPLAY STYLES
+   ============================================ */
 
 /* Article link styles - ensure links are visible and clickable */
 .prose a {
@@ -118,4 +123,118 @@
 .prose a[href] {
   cursor: pointer !important;
   pointer-events: auto !important;
+}
+
+/* Table styles for article display */
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+  font-size: 0.95rem;
+}
+
+.prose table td,
+.prose table th {
+  border: 1px solid #d1d5db;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.prose table td p {
+  margin: 0;
+}
+
+/* ============================================
+   PROSE MIRROR (Editor) STYLES
+   ============================================ */
+
+.ProseMirror {
+  outline: none;
+  min-height: 300px;
+  padding: 1rem;
+}
+
+.ProseMirror p {
+  margin: 0 0 1rem 0;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0 0 1rem 0;
+}
+
+.ProseMirror h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem 0;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem 0;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #0066cc;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #4a5568;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+/* Placeholder */
+.ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Table styles in editor - these will show in the editor */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  position: relative;
+}
+
+.ProseMirror table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.ProseMirror table td p {
+  margin: 0;
+}
+
+/* Selected cell in table */
+.ProseMirror .selectedCell {
+  background-color: rgba(0, 102, 204, 0.1);
 }

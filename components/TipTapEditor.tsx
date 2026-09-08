@@ -7,6 +7,11 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+// ✅ FIXED: Use named imports for table extensions
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold,
   Italic,
@@ -22,6 +27,7 @@ import {
   Heading2,
   Check,
   X,
+  Table as TableIcon,
 } from "lucide-react";
 
 interface TipTapEditorProps {
@@ -58,6 +64,29 @@ export function TipTapEditor({
       }),
       Placeholder.configure({
         placeholder,
+      }),
+      // ✅ Use the named imports
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: "border-collapse border border-gray-300 w-full my-4",
+        },
+      }),
+      TableRow.configure({
+        HTMLAttributes: {
+          class: "border-b border-gray-300",
+        },
+      }),
+      TableHeader.configure({
+        HTMLAttributes: {
+          class:
+            "bg-gray-100 border border-gray-300 px-4 py-2 text-left font-bold",
+        },
+      }),
+      TableCell.configure({
+        HTMLAttributes: {
+          class: "border border-gray-300 px-4 py-2",
+        },
       }),
     ],
     content: value,
@@ -106,6 +135,36 @@ export function TipTapEditor({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [showLinkPopover]);
+
+  // Table functions
+  const insertTable = () => {
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: 4, cols: 3, withHeaderRow: true })
+      .run();
+  };
+
+  const addRowAfter = () => {
+    if (!editor) return;
+    editor.chain().focus().addRowAfter().run();
+  };
+
+  const addColumnAfter = () => {
+    if (!editor) return;
+    editor.chain().focus().addColumnAfter().run();
+  };
+
+  const deleteRow = () => {
+    if (!editor) return;
+    editor.chain().focus().deleteRow().run();
+  };
+
+  const deleteColumn = () => {
+    if (!editor) return;
+    editor.chain().focus().deleteColumn().run();
+  };
 
   if (!editor) {
     return (
@@ -160,7 +219,9 @@ export function TipTapEditor({
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 1 }).run()
           }
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""
+          }`}
           title="Heading 1"
         >
           <Heading1 size={18} />
@@ -170,7 +231,9 @@ export function TipTapEditor({
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 2 }).run()
           }
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""
+          }`}
           title="Heading 2"
         >
           <Heading2 size={18} />
@@ -182,7 +245,9 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("bold") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("bold") ? "bg-gray-200" : ""
+          }`}
           title="Bold"
         >
           <Bold size={18} />
@@ -190,7 +255,9 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("italic") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("italic") ? "bg-gray-200" : ""
+          }`}
           title="Italic"
         >
           <Italic size={18} />
@@ -198,7 +265,9 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("strike") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("strike") ? "bg-gray-200" : ""
+          }`}
           title="Strikethrough"
         >
           <Strikethrough size={18} />
@@ -210,7 +279,9 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("bulletList") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("bulletList") ? "bg-gray-200" : ""
+          }`}
           title="Bullet List"
         >
           <List size={18} />
@@ -218,7 +289,9 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("orderedList") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("orderedList") ? "bg-gray-200" : ""
+          }`}
           title="Numbered List"
         >
           <ListOrdered size={18} />
@@ -230,16 +303,72 @@ export function TipTapEditor({
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("blockquote") ? "bg-gray-200" : ""}`}
+          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+            editor.isActive("blockquote") ? "bg-gray-200" : ""
+          }`}
           title="Blockquote"
         >
           <Quote size={18} />
         </button>
+
+        {/* ✅ Table Button */}
+        <button
+          type="button"
+          onClick={insertTable}
+          className="p-2 rounded hover:bg-gray-200 transition-colors"
+          title="Insert Table"
+        >
+          <TableIcon size={18} />
+        </button>
+
+        {/* Table Controls - show when inside a table */}
+        {editor.isActive("table") && (
+          <>
+            <div className="w-px h-8 bg-gray-300 mx-1" />
+            <button
+              type="button"
+              onClick={addRowAfter}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-xs font-bold"
+              title="Add Row"
+            >
+              + Row
+            </button>
+            <button
+              type="button"
+              onClick={addColumnAfter}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-xs font-bold"
+              title="Add Column"
+            >
+              + Col
+            </button>
+            <button
+              type="button"
+              onClick={deleteRow}
+              className="p-2 rounded hover:bg-red-100 transition-colors text-xs font-bold text-red-600"
+              title="Delete Row"
+            >
+              - Row
+            </button>
+            <button
+              type="button"
+              onClick={deleteColumn}
+              className="p-2 rounded hover:bg-red-100 transition-colors text-xs font-bold text-red-600"
+              title="Delete Column"
+            >
+              - Col
+            </button>
+          </>
+        )}
+
+        <div className="w-px h-8 bg-gray-300 mx-1" />
+
         <div className="relative">
           <button
             type="button"
             onClick={openLinkPopover}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive("link") || showLinkPopover ? "bg-gray-200" : ""}`}
+            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+              editor.isActive("link") || showLinkPopover ? "bg-gray-200" : ""
+            }`}
             title="Insert Link"
           >
             <LinkIcon size={18} />
@@ -250,8 +379,6 @@ export function TipTapEditor({
               ref={popoverRef}
               className="absolute z-20 top-full left-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-3"
             >
-              {/* Plain div, not <form> — this popover can render inside the
-                  page's own <form>, and HTML doesn't allow nested forms. */}
               <div className="flex items-center gap-2">
                 <input
                   ref={linkInputRef}
