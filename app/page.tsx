@@ -1,3 +1,4 @@
+// app/page.tsx
 import { db } from "@/lib/db";
 import { ArticleCard } from "@/components/ArticleCard";
 import { FeaturedHero } from "@/components/FeaturedHero";
@@ -16,9 +17,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const categoryId = params.category ? parseInt(params.category) : undefined;
 
+  // ✅ Use categoryId when fetching articles
   const [allArticles, totalCount] = await Promise.all([
-    db.articles.getPublished(20, 0),
-    db.articles.count(),
+    db.articles.getPublished(20, 0, categoryId), // ✅ Pass categoryId
+    db.articles.count(categoryId), // ✅ Pass categoryId
   ]);
 
   // Separate hero and rest
@@ -34,10 +36,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     pageTitle = categoryName;
   }
 
-  // Filter articles by category if categoryId is provided
-  let displayArticles = categoryId
-    ? allArticles.filter((a) => a.category_id === categoryId)
-    : articles;
+  // ✅ No need to filter again since we already filtered in the query
+  const displayArticles = categoryId ? allArticles : articles;
 
   // If no category filter and only 1 article total, show it in the grid
   const showHero = heroArticle && !categoryId && articles.length > 0;
@@ -55,7 +55,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           No articles published yet.
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+        <div
+          id="articleGrid"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch"
+        >
           {/* If only 1 article and no category filter, show the hero in the grid */}
           {!categoryId && articles.length === 0 && heroArticle ? (
             <ArticleCard article={heroArticle} />
