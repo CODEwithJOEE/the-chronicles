@@ -1,9 +1,16 @@
-// app/article/[slug]/page.tsx
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Clock } from "lucide-react";
+
+// ✅ Generate static paths for all articles
+export async function generateStaticParams() {
+  const articles = await db.articles.getPublished(999);
+  return articles.map((article) => ({
+    slug: article.slug,
+  }));
+}
 
 interface ArticlePageProps {
   params: Promise<{ slug: string }>;
@@ -12,21 +19,19 @@ interface ArticlePageProps {
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
 
-  console.log("Looking for article with slug:", slug);
-
-  const article = await db.articles.getBySlug(slug);
+  // ✅ Get article and latest posts in parallel
+  const [article, latestPosts] = await Promise.all([
+    db.articles.getBySlug(slug),
+    db.articles.getLatest(4),
+  ]);
 
   if (!article) {
-    console.log("Article not found, showing 404");
     notFound();
   }
 
   // Calculate reading time
   const wordCount = article.content.replace(/<[^>]*>/g, "").split(/\s+/).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
-
-  // Get latest posts for sidebar
-  const latestPosts = await db.articles.getLatest(4, article.id);
 
   return (
     <div className="container py-8">

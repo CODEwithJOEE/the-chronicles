@@ -1,27 +1,29 @@
-// app/page.tsx
 import { db } from "@/lib/db";
 import { ArticleCard } from "@/components/ArticleCard";
 import { FeaturedHero } from "@/components/FeaturedHero";
 import { LoadMoreButton } from "@/components/LoadMoreButton";
+import { Suspense } from "react";
+
+// ✅ Enable static generation
+export const dynamic = "force-static";
+export const revalidate = 60; // Revalidate every 60 seconds
 
 interface HomePageProps {
   searchParams: Promise<{ category?: string }>;
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  // ✅ Unwrap the Promise
   const params = await searchParams;
   const categoryId = params.category ? parseInt(params.category) : undefined;
 
-  // Fetch all published articles
-  const allArticles = await db.articles.getPublished(20, 0);
+  const [allArticles, totalCount] = await Promise.all([
+    db.articles.getPublished(20, 0),
+    db.articles.count(),
+  ]);
 
   // Separate hero and rest
   const heroArticle = allArticles.length > 0 ? allArticles[0] : null;
   const articles = allArticles.slice(1);
-
-  // Get total count for load more
-  const totalCount = await db.articles.count();
 
   // Determine page title
   let pageTitle = "Latest Stories";
@@ -71,7 +73,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {allArticles.length > 0 && totalCount > 20 && (
         <div className="text-center mt-16">
-          <LoadMoreButton initialOffset={20} categoryId={categoryId} />
+          <Suspense
+            fallback={<div className="text-gray-500">Loading more...</div>}
+          >
+            <LoadMoreButton initialOffset={20} categoryId={categoryId} />
+          </Suspense>
         </div>
       )}
     </div>

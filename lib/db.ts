@@ -59,9 +59,20 @@ export const db = {
       offset: number = 0,
       categoryId?: number,
     ): Promise<Article[]> {
+      // ✅ Use JOIN to get all data in one query
       let query = supabase
         .from("articles")
-        .select("*")
+        .select(
+          `
+      *,
+      users!articles_author_id_fkey (
+        username
+      ),
+      categories!articles_category_id_fkey (
+        name
+      )
+    `,
+        )
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
@@ -71,47 +82,20 @@ export const db = {
       }
 
       const { data, error } = await query;
+
       if (error) {
         console.error("Error fetching published articles:", error);
         return [];
       }
 
-      // Get author and category names for each article
-      const articlesWithDetails = await Promise.all(
-        (data || []).map(async (article) => {
-          let author = "Guest Writer";
-          if (article.author_id) {
-            const { data: user } = await supabase
-              .from("users")
-              .select("username")
-              .eq("id", article.author_id)
-              .maybeSingle();
-            if (user) {
-              author = user.username;
-            }
-          }
-
-          let category_name = "Uncategorized";
-          if (article.category_id) {
-            const { data: category } = await supabase
-              .from("categories")
-              .select("name")
-              .eq("id", article.category_id)
-              .maybeSingle();
-            if (category) {
-              category_name = category.name;
-            }
-          }
-
-          return {
-            ...article,
-            author,
-            category_name,
-          };
-        }),
-      );
-
-      return articlesWithDetails;
+      // ✅ Transform data once
+      return (data || []).map((article) => ({
+        ...article,
+        author: article.users?.username || "Guest Writer",
+        category_name: article.categories?.name || "Uncategorized",
+        users: undefined,
+        categories: undefined,
+      }));
     },
 
     async getLatest(limit: number = 4, excludeId?: number): Promise<Article[]> {
