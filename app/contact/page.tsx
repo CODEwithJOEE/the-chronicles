@@ -1,14 +1,14 @@
-// app/contact/page.tsx
 "use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 export default function ContactPage() {
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    service: "general",
+    service: searchParams.get("service") || "general",
     website: "",
     message: "",
   });

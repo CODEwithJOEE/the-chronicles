@@ -5,9 +5,7 @@ import { FeaturedHero } from "@/components/FeaturedHero";
 import { LoadMoreButton } from "@/components/LoadMoreButton";
 import { Suspense } from "react";
 
-// ✅ Enable static generation
-export const dynamic = "force-static";
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
 interface HomePageProps {
   searchParams: Promise<{ category?: string }>;
@@ -17,10 +15,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const categoryId = params.category ? parseInt(params.category) : undefined;
 
-  // ✅ Use categoryId when fetching articles
   const [allArticles, totalCount] = await Promise.all([
-    db.articles.getPublished(20, 0, categoryId), // ✅ Pass categoryId
-    db.articles.count(categoryId), // ✅ Pass categoryId
+    db.articles.getPublished(20, 0, categoryId),
+    db.articles.count(categoryId),
   ]);
 
   // Separate hero and rest
@@ -36,15 +33,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     pageTitle = categoryName;
   }
 
-  // ✅ No need to filter again since we already filtered in the query
-  const displayArticles = categoryId ? allArticles : articles;
+  // ✅ Fixed: Handle all 3 cases (category filter / 1 article / 2+ articles)
+  const displayArticles =
+    categoryId || articles.length === 0 ? allArticles : articles;
 
-  // If no category filter and only 1 article total, show it in the grid
   const showHero = heroArticle && !categoryId && articles.length > 0;
 
   return (
     <div className="container py-12">
-      {showHero && <FeaturedHero article={heroArticle} />}
+      {showHero && heroArticle && <FeaturedHero article={heroArticle} />}
 
       <h2 className="font-serif text-4xl font-black border-b-2 border-primary pb-3 mb-10">
         {pageTitle}
@@ -59,28 +56,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           id="articleGrid"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch"
         >
-          {/* If only 1 article and no category filter, show the hero in the grid */}
-          {!categoryId && articles.length === 0 && heroArticle ? (
-            <ArticleCard article={heroArticle} />
-          ) : displayArticles.length === 0 ? (
-            <p className="col-span-full text-center text-gray-500 py-12">
-              No articles found in this category.
-            </p>
-          ) : (
-            displayArticles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))
-          )}
-        </div>
-      )}
+          {displayArticles.map((article) => (
+            <ArticleCard key={article.id} article={article} />
+          ))}
 
-      {allArticles.length > 0 && totalCount > 20 && (
-        <div className="text-center mt-16">
-          <Suspense
-            fallback={<div className="text-gray-500">Loading more...</div>}
-          >
-            <LoadMoreButton initialOffset={20} categoryId={categoryId} />
-          </Suspense>
+          {allArticles.length > 0 && totalCount > 20 && (
+            <Suspense fallback={null}>
+              <LoadMoreButton initialOffset={20} categoryId={categoryId} />
+            </Suspense>
+          )}
         </div>
       )}
     </div>

@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+import { ArticleCard } from "./ArticleCard";
+import { Article } from "@/types";
 
 interface LoadMoreButtonProps {
   initialOffset: number;
@@ -12,6 +14,7 @@ export function LoadMoreButton({
   initialOffset,
   categoryId,
 }: LoadMoreButtonProps) {
+  const [newArticles, setNewArticles] = useState<Article[]>([]);
   const [offset, setOffset] = useState(initialOffset);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -28,12 +31,8 @@ export function LoadMoreButton({
       const response = await fetch(`/api/articles/more?${params}`);
       const data = await response.json();
 
-      if (data.html) {
-        const grid = document.getElementById("articleGrid");
-        if (grid) {
-          grid.insertAdjacentHTML("beforeend", data.html);
-        }
-
+      if (data.articles?.length) {
+        setNewArticles((prev) => [...prev, ...data.articles]);
         setOffset(offset + data.count);
 
         if (data.count < 9) {
@@ -49,15 +48,25 @@ export function LoadMoreButton({
     }
   };
 
-  if (!hasMore) return null;
-
   return (
-    <button
-      onClick={loadMore}
-      disabled={loading}
-      className="px-8 py-3 bg-white text-primary border border-gray-300 rounded-full font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all disabled:opacity-50"
-    >
-      {loading ? "Loading Articles..." : "Load More Articles ↓"}
-    </button>
+    <>
+      {/* ✅ Rendered cards — same component as the initial page */}
+      {newArticles.map((article) => (
+        <ArticleCard key={article.id} article={article} />
+      ))}
+
+      {/* ✅ Load more button — spans full grid width */}
+      {hasMore && (
+        <div className="col-span-full text-center mt-8">
+          <button
+            onClick={loadMore}
+            disabled={loading}
+            className="px-8 py-3 bg-white text-primary border border-gray-300 rounded-full font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all disabled:opacity-50"
+          >
+            {loading ? "Loading Articles..." : "Load More Articles ↓"}
+          </button>
+        </div>
+      )}
+    </>
   );
 }

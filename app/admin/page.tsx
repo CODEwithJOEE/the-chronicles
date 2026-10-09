@@ -34,6 +34,7 @@ export default function AdminDashboardPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [quickEditId, setQuickEditId] = useState<number | null>(null);
   const [quickEditData, setQuickEditData] = useState<{
@@ -44,46 +45,69 @@ export default function AdminDashboardPage() {
   const [updating, setUpdating] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
 
-  // Filter states
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isDateOpen, setIsDateOpen] = useState(false);
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   const router = useRouter();
 
+  // ============================================
+  // AUTH CHECK
+  // ============================================
   useEffect(() => {
     const checkAuth = async () => {
+      console.log("[admin] Checking auth...");
+
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      console.log("[admin] getUser result:", { authUser, authError });
+
+      if (authError || !authUser) {
+        console.log("[admin] No valid session — redirecting to /login");
         router.push("/login");
         return;
       }
 
-      const { data: user } = await supabase
+      console.log("[admin] Auth user id:", authUser.id);
+
+      const { data: profile, error: profileError } = await supabase
         .from("users")
         .select("role")
-        .eq("id", session.user.id)
-        .single();
+        .eq("id", authUser.id)
+        .maybeSingle();
 
-      if (user?.role !== "admin") {
+      console.log("[admin] Profile query:", { profile, profileError });
+
+      if (profileError) {
+        console.error("[admin] Profile error:", profileError);
         router.push("/");
         return;
       }
 
-      fetchArticles();
-      fetchCategories();
+      if (!profile || profile.role !== "admin") {
+        console.log("[admin] Not an admin — redirecting to /");
+        router.push("/");
+        return;
+      }
+
+      console.log("[admin] ✅ Access granted");
+      setAuthChecked(true);
+      await Promise.all([fetchArticles(), fetchCategories()]);
     };
 
     checkAuth();
   }, [router]);
 
+  // ============================================
+  // FETCHERS
+  // ============================================
   const fetchCategories = async () => {
     const { data } = await supabase
       .from("categories")
@@ -94,32 +118,52 @@ export default function AdminDashboardPage() {
 
   const fetchArticles = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // 1. Fetch articles
+    const { data: articlesData, error: articlesError } = await supabase
       .from("articles")
-      .select(
-        `
-        *,
-        users!articles_author_id_fkey (username)
-      `,
-      )
+      .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      const formatted = data.map((item) => ({
-        ...item,
-        author: item.users?.username,
-      }));
-      setArticles(formatted);
-      setFilteredArticles(formatted);
+    if (articlesError || !articlesData) {
+      console.error("Error fetching articles:", articlesError);
+      setLoading(false);
+      return;
     }
+
+    // 2. Fetch author profiles from the public view
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("public_profiles")
+      .select("id, username");
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+    }
+
+    // 3. Build lookup: { userId => username }
+    const profilesMap = new Map(
+      (profilesData || []).map((p) => [p.id, p.username]),
+    );
+
+    // 4. Merge author names into articles
+    const formatted = articlesData.map((item) => ({
+      ...item,
+      author: item.author_id
+        ? profilesMap.get(item.author_id) || "Unknown"
+        : "Unknown",
+    }));
+
+    setArticles(formatted);
+    setFilteredArticles(formatted);
     setLoading(false);
   };
 
-  // Filter and Search functionality
+  // ============================================
+  // FILTER + SEARCH
+  // ============================================
   useEffect(() => {
     let filtered = articles;
 
-    // Search filter
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(
@@ -130,14 +174,12 @@ export default function AdminDashboardPage() {
       );
     }
 
-    // Category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter(
         (article) => article.category_id === parseInt(selectedCategory),
       );
     }
 
-    // Date filter
     if (selectedDate !== "all") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -173,7 +215,9 @@ export default function AdminDashboardPage() {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory, selectedDate, articles]);
 
-  // Pagination
+  // ============================================
+  // PAGINATION
+  // ============================================
   const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -185,6 +229,9 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // ============================================
+  // DELETE
+  // ============================================
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this article?")) return;
 
@@ -197,7 +244,9 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Quick Edit handlers
+  // ============================================
+  // QUICK EDIT
+  // ============================================
   const openQuickEdit = (article: Article) => {
     setQuickEditId(article.id);
     setQuickEditData({
@@ -254,6 +303,9 @@ export default function AdminDashboardPage() {
     setUpdating(false);
   };
 
+  // ============================================
+  // HELPERS
+  // ============================================
   const getStatusColor = (status: string) => {
     return status === "published"
       ? "bg-emerald-100 text-emerald-800 border-emerald-200"
@@ -266,7 +318,6 @@ export default function AdminDashboardPage() {
     return cat?.name || "Uncategorized";
   };
 
-  // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedCategory("all");
@@ -275,6 +326,20 @@ export default function AdminDashboardPage() {
 
   const hasActiveFilters =
     searchQuery || selectedCategory !== "all" || selectedDate !== "all";
+
+  // ============================================
+  // RENDER
+  // ============================================
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-4 text-gray-500">Checking access...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -308,9 +373,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Search and Filters - Inline layout */}
+          {/* Search and Filters */}
           <div className="mt-6 flex flex-col lg:flex-row gap-3">
-            {/* Search - Left side */}
             <div className="relative flex-1">
               <Search
                 size={20}
@@ -333,7 +397,6 @@ export default function AdminDashboardPage() {
               )}
             </div>
 
-            {/* Filters - Right side */}
             <div className="flex flex-wrap gap-2 flex-shrink-0">
               {/* Category Filter */}
               <div className="relative">
@@ -433,7 +496,6 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
-              {/* Clear Filters */}
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
@@ -446,21 +508,10 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Filter Results Count */}
           {hasActiveFilters && (
             <div className="mt-3 text-sm text-gray-500">
               Found {filteredArticles.length} result
               {filteredArticles.length !== 1 ? "s" : ""}
-              {selectedCategory !== "all" && (
-                <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                  {getCategoryName(parseInt(selectedCategory))}
-                </span>
-              )}
-              {selectedDate !== "all" && (
-                <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                  {selectedDate}
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -521,18 +572,9 @@ export default function AdminDashboardPage() {
             <div className="p-12 text-center">
               <FileText size={48} className="mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500 font-medium">
-                {searchQuery ||
-                selectedCategory !== "all" ||
-                selectedDate !== "all"
+                {hasActiveFilters
                   ? "No articles match your filters"
                   : "No articles found"}
-              </p>
-              <p className="text-gray-400 text-sm mt-1">
-                {searchQuery ||
-                selectedCategory !== "all" ||
-                selectedDate !== "all"
-                  ? "Try adjusting your search or filters"
-                  : "Click 'Write New' to create your first article"}
               </p>
               {hasActiveFilters && (
                 <button
@@ -573,10 +615,9 @@ export default function AdminDashboardPage() {
                     {currentItems.map((article) => (
                       <tr
                         key={article.id}
-                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
+                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                       >
                         {quickEditId === article.id ? (
-                          // Quick Edit Row
                           <td colSpan={6} className="px-6 py-4 bg-blue-50/50">
                             <div className="flex flex-col gap-4">
                               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -656,24 +697,11 @@ export default function AdminDashboardPage() {
                             </div>
                           </td>
                         ) : (
-                          // Normal Row
                           <>
                             <td className="px-6 py-4">
-                              <div>
-                                <p className="font-medium text-gray-900 line-clamp-1">
-                                  {article.title}
-                                </p>
-                                <p className="text-xs text-gray-400 md:hidden mt-1">
-                                  {article.author || "Unknown"} •{" "}
-                                  {new Date(
-                                    article.created_at,
-                                  ).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                  })}
-                                </p>
-                              </div>
+                              <p className="font-medium text-gray-900 line-clamp-1">
+                                {article.title}
+                              </p>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">
                               {article.author || "Unknown"}

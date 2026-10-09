@@ -18,14 +18,9 @@ export default function LoginPage() {
     setError("");
 
     try {
-      console.log("Attempting login with:", email);
-
-      // Try to sign in
+      // 1. Sign in with Supabase Auth
       const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
         console.error("Sign in error:", signInError);
@@ -40,61 +35,22 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("User logged in with ID:", data.user.id);
-
-      // First, check if user exists in public.users
-      const { data: userExists, error: checkError } = await supabase
+      // 2. Check role in public.users
+      const { data: userProfile, error: profileError } = await supabase
         .from("users")
-        .select("id, role")
+        .select("role")
         .eq("id", data.user.id)
         .maybeSingle();
 
-      console.log("User in public.users:", userExists);
-
-      // If user doesn't exist in public.users, create them
-      if (!userExists) {
-        console.log("User not in public.users, creating...");
-        const { error: insertError } = await supabase.from("users").insert([
-          {
-            id: data.user.id,
-            username: email.split("@")[0],
-            email: email,
-            role: "admin",
-          },
-        ]);
-
-        if (insertError) {
-          console.error("Error creating user profile:", insertError);
-          setError("Error creating user profile. Please contact admin.");
-          setLoading(false);
-          return;
-        }
-
-        // Re-fetch the user data
-        const { data: newUser, error: fetchError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-
-        if (fetchError) {
-          console.error("Error fetching new user:", fetchError);
-          setError("Error fetching user permissions.");
-          setLoading(false);
-          return;
-        }
-
-        if (newUser?.role === "admin") {
-          router.push("/admin");
-        } else {
-          router.push("/");
-        }
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        setError("Could not load your profile. Please contact admin.");
         setLoading(false);
         return;
       }
 
-      // User exists, check role
-      if (userExists?.role === "admin") {
+      // 3. Redirect based on role
+      if (userProfile?.role === "admin") {
         router.push("/admin");
       } else {
         router.push("/");

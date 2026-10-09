@@ -9,7 +9,12 @@ export const db = {
 
       const { data: article, error } = await supabase
         .from("articles")
-        .select("*")
+        .select(
+          `
+      *,
+      categories!articles_category_id_fkey (name)
+    `,
+        )
         .eq("slug", slug)
         .maybeSingle();
 
@@ -25,32 +30,21 @@ export const db = {
 
       let author = "Guest Writer";
       if (article.author_id) {
-        const { data: user } = await supabase
-          .from("users")
+        const { data: profile } = await supabase
+          .from("public_profiles")
           .select("username")
           .eq("id", article.author_id)
           .maybeSingle();
-        if (user) {
-          author = user.username;
-        }
-      }
-
-      let category_name = "Uncategorized";
-      if (article.category_id) {
-        const { data: category } = await supabase
-          .from("categories")
-          .select("name")
-          .eq("id", article.category_id)
-          .maybeSingle();
-        if (category) {
-          category_name = category.name;
+        if (profile) {
+          author = profile.username;
         }
       }
 
       return {
         ...article,
         author,
-        category_name,
+        category_name: article.categories?.name || "Uncategorized",
+        categories: undefined,
       };
     },
 
@@ -59,18 +53,12 @@ export const db = {
       offset: number = 0,
       categoryId?: number,
     ): Promise<Article[]> {
-      // ✅ Use JOIN to get all data in one query
       let query = supabase
         .from("articles")
         .select(
           `
       *,
-      users!articles_author_id_fkey (
-        username
-      ),
-      categories!articles_category_id_fkey (
-        name
-      )
+      categories!articles_category_id_fkey (name)
     `,
         )
         .eq("status", "published")
@@ -82,18 +70,26 @@ export const db = {
       }
 
       const { data, error } = await query;
-
       if (error) {
         console.error("Error fetching published articles:", error);
         return [];
       }
 
-      // ✅ Transform data once
+      // Fetch profiles separately
+      const { data: profiles } = await supabase
+        .from("public_profiles")
+        .select("id, username");
+
+      const profilesMap = new Map(
+        (profiles || []).map((p) => [p.id, p.username]),
+      );
+
       return (data || []).map((article) => ({
         ...article,
-        author: article.users?.username || "Guest Writer",
+        author: article.author_id
+          ? profilesMap.get(article.author_id) || "Guest Writer"
+          : "Guest Writer",
         category_name: article.categories?.name || "Uncategorized",
-        users: undefined,
         categories: undefined,
       }));
     },
@@ -104,7 +100,6 @@ export const db = {
         .select(
           `
       *,
-      users!articles_author_id_fkey (username),
       categories!articles_category_id_fkey (name)
     `,
         )
@@ -112,24 +107,30 @@ export const db = {
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      // ✅ Exclude the current article
       if (excludeId) {
         query = query.neq("id", excludeId);
       }
 
       const { data, error } = await query;
-
       if (error) {
         console.error("Error fetching latest articles:", error);
         return [];
       }
 
-      // Transform data
+      const { data: profiles } = await supabase
+        .from("public_profiles")
+        .select("id, username");
+
+      const profilesMap = new Map(
+        (profiles || []).map((p) => [p.id, p.username]),
+      );
+
       return (data || []).map((article) => ({
         ...article,
-        author: article.users?.username || "Guest Writer",
+        author: article.author_id
+          ? profilesMap.get(article.author_id) || "Guest Writer"
+          : "Guest Writer",
         category_name: article.categories?.name || "Uncategorized",
-        users: undefined,
         categories: undefined,
       }));
     },
@@ -137,7 +138,12 @@ export const db = {
     async getHero(categoryId?: number): Promise<Article | null> {
       let query = supabase
         .from("articles")
-        .select("*")
+        .select(
+          `
+      *,
+      categories!articles_category_id_fkey (name)
+    `,
+        )
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(1);
@@ -147,40 +153,27 @@ export const db = {
       }
 
       const { data, error } = await query;
-      if (error || !data || data.length === 0) {
-        return null;
-      }
+      if (error || !data || data.length === 0) return null;
 
       const article = data[0];
 
       let author = "Guest Writer";
       if (article.author_id) {
-        const { data: user } = await supabase
-          .from("users")
+        const { data: profile } = await supabase
+          .from("public_profiles")
           .select("username")
           .eq("id", article.author_id)
           .maybeSingle();
-        if (user) {
-          author = user.username;
-        }
-      }
-
-      let category_name = "Uncategorized";
-      if (article.category_id) {
-        const { data: category } = await supabase
-          .from("categories")
-          .select("name")
-          .eq("id", article.category_id)
-          .maybeSingle();
-        if (category) {
-          category_name = category.name;
+        if (profile) {
+          author = profile.username;
         }
       }
 
       return {
         ...article,
         author,
-        category_name,
+        category_name: article.categories?.name || "Uncategorized",
+        categories: undefined,
       };
     },
 
@@ -202,7 +195,6 @@ export const db = {
       return count || 0;
     },
 
-    // FIXED: search function - returns only what's needed
     async search(query: string): Promise<
       {
         id: number;
@@ -274,6 +266,20 @@ export const db = {
 
       if (error || !data) return null;
       return data.featured_image;
+    },
+
+    // ✅ ADDED: Lightweight query for generateStaticParams
+    async getAllSlugs(): Promise<{ slug: string }[]> {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("slug")
+        .eq("status", "published");
+
+      if (error) {
+        console.error("Error fetching slugs:", error);
+        return [];
+      }
+      return data || [];
     },
   },
 
